@@ -76,10 +76,6 @@ try:
                 else:
                     response="login faild wrong usser name or pasword"
                 
-
-
-
-
             
             response=response+"\n"
             client_sok.sendall(response.encode())
