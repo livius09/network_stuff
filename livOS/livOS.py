@@ -49,12 +49,14 @@ try:
                 response =(
                 "---------- \n"
                 "This is a WIP goffi ah server \n" 
-                "livOS\n" "---------- \n" 
+                "livOS V 0.9\n" "---------- \n" 
                 "comands: \n" "-Help \n"
                 "-kill \n"
                 "-echo \n"
                 "-exe \n"
-                "-login")
+                "-login\n"
+                "-add user\n"
+                "-remove user")
 
             elif dat == "kill":
                 client_sok.sendall("Goodbey from livOS".encode())
@@ -71,10 +73,91 @@ try:
                 pasword = client_sok.recv(1024).decode().strip()
                 if username in users and hashlib.sha256(pasword.encode()).hexdigest()==paswords[users.index(username)]:
                     curuser=username
-                    curauth=auths[users.index(curuser)]
+                    curauth=int(auths[users.index(curuser)])
                     response=f"login sucsesfull welcome {curuser} whit auth level {curauth} from ip: {client_adr}"
                 else:
                     response="login faild wrong usser name or pasword"
+
+            elif dat == "add user":
+                if curauth == 0:
+                    while True:
+                        client_sok.sendall("what should the new user name be:".encode())
+                        newuser= client_sok.recv(1024).decode().strip()
+                        if newuser in users:
+                            client_sok.sendall("this user already exists".encode())
+                            continue
+                        elif "," in dat:
+                            client_sok.sendall('you cant have a "," in your user name'.encode())
+                            continue
+                        else:
+                            break
+                    
+                    while True:
+                        client_sok.sendall(f"what should the pasword for the new user {newuser} be:".encode())
+                        newpasword = client_sok.recv(1024).decode().strip()
+                        break
+
+
+                    while True:
+                        client_sok.sendall(f"what should the Auth level for the new user {newuser} be:".encode())
+                        newauth = client_sok.recv(1024).decode().strip()
+                        break
+
+                    with open("userf.txt", "a") as file:
+                        file.write(f",{newuser}")
+
+                    with open("pswf.txt", "a") as file:
+                        file.write(f",{hashlib.sha256(newpasword.encode()).hexdigest()}")
+
+                    with open("authf.txt", "a") as file:
+                        file.write(f",{newauth}")
+
+                    client_sok.sendall(f"finished setting up {newuser}".encode()) 
+                    continue                           
+                else:
+                    client_sok.sendall(f"you dont have permision to add a user you need to be auth level 0 root your curently {curauth}".encode())
+                    continue
+
+            elif dat == "remove user":
+                if curauth == 0:
+                    client_sok.sendall("wich user do you want to remove\n".encode())
+                    rmuser = client_sok.recv(1024).decode().strip()
+                    if rmuser in users:
+                        rmid=users.index(rmuser)
+                        if rmuser != curuser:
+                            if auths[rmid]!=0:
+                                users.pop(rmid)
+                                paswords.pop(rmid)
+                                auths.pop(rmid)
+                                
+                                with open("userf.txt", "w") as file:
+                                    file.write(",".join(users))
+
+                                with open("pswf.txt", "w") as file:
+                                    file.write(",".join(paswords))
+
+                                with open("authf.txt", "w") as file:
+                                    file.write(",".join(map(str,auths)))
+                                
+                                client_sok.sendall(f"sucsesfuly removed user {rmuser}\n".encode())
+                                continue
+
+                            else:
+                                client_sok.sendall("you cant remove another amin\n".encode())
+                                continue
+
+                        else:
+                            client_sok.sendall("you cant remove yourself\n".encode())
+                            continue
+
+                    else:
+                        client_sok.sendall("user does not exist\n".encode())
+                        continue
+                    
+                else:
+                    client_sok.sendall(f"you dont have permision to remove a user you need to be auth level 0 root your curently {curauth}\n".encode())
+                    continue
+
                 
             
             response=response+"\n"
