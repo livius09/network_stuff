@@ -42,7 +42,6 @@ def help(client_sok):
                 "comands: \n" "-Help \n"
                 "-kill \n"
                 "-echo \n"
-                "-exe \n"
                 "-login\n"
                 "-add user\n"
                 "-remove user\n"
@@ -178,14 +177,14 @@ def rm_user(client_sok):
 
 def files(client_sok):
     global curuser, curauth
-    folder_path = "C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files"
     
-    contents = os.listdir(folder_path)
-    if not contents:
-        client_sok.sendall("No folders are available to view.\n".encode())
-        return
-    ncontents="\n ".join(contents)
     while True:
+        folder_path = "C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files"
+        contents = os.listdir(folder_path)
+        if not contents:
+            client_sok.sendall("No folders are available to view.\n".encode())
+            return
+        ncontents="\n ".join(contents)
         client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n".encode())
         client_sok.sendall(f"which folder do you want to view 0-{contents[-1]} -1 to quit:\n".encode())
         try:
@@ -197,7 +196,7 @@ def files(client_sok):
             if not acsfo in contents:
                 raise ValueError
             
-            acsfo=int(acsfo)
+            acsfo=int(acsfo)#cause folder are ints that indicate theyr neded authlevel
         except:
             client_sok.sendall(f"you have to pick an existing folder or -1 to leave\n".encode())
             continue
@@ -207,43 +206,112 @@ def files(client_sok):
             client_sok.sendall(f"you dont have the permision to view this folder your curent authlevel is:{curauth}\n".encode())
             continue
 
-        break
 
-    while True:
-        folder_path = f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}"
-        contents = os.listdir(folder_path)
-        if not contents:
-            client_sok.sendall("No files are available to view.\n".encode())
-            files(client_sok)
+        while True:
+            folder_path = f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}"
+            contents = os.listdir(folder_path)
+            if not contents:
+                client_sok.sendall("No files are available to view.\n".encode())
+                break
 
-        ncontents="\n-".join(contents)
-        client_sok.sendall(f"these are the aviable files: \n {ncontents}\n".encode())
-        client_sok.sendall(f"chose wich to view by name or -1 to go back to chosing folders:\n".encode())
-        try:
-            acs=client_sok.recv(1024).decode().strip()
-            if acs == "-1":
-                files(client_sok)
-            if not acs in contents:
-                raise ValueError
-        except:
-            client_sok.sendall(f"you have to pick an existing file or -1 to leave\n".encode())
-            continue
-        
+            ncontents="\n-".join(contents)
+            client_sok.sendall(f"these are the aviable files: \n {ncontents}\n".encode())
+            client_sok.sendall(f"chose wich to view by name or -1 to go back to chosing folders:\n".encode())
+            try:
+                acs=client_sok.recv(1024).decode().strip()
+                if acs == "-1":
+                    break #before i caled files() but it dint really work and an atacker could perform a stackoverflow 
+                if not acs in contents:
+                    raise ValueError
+            except:
+                client_sok.sendall(f"you have to pick an existing file or -1 to leave\n".encode())
+                continue
+            
 
-        try:
-            with open(f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}/{acs}", "r") as file:
-                client_sok.sendall(f"{file.read()}\n".encode())
-        except FileNotFoundError as bals:
-            client_sok.sendall(f"file {acs} doese not exist\n {bals}".encode())
-            continue
-        except Exception as e:
-            client_sok.sendall(f"eror reading the file: {e}\n".encode())
+            try:
+                with open(f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}/{acs}", "r") as file:
+                    client_sok.sendall(f"{file.read()}\n".encode())
+            except FileNotFoundError as bals:
+                client_sok.sendall(f"file {acs} doese not exist\n {bals}".encode())
+                continue
+            except Exception as e:
+                client_sok.sendall(f"eror reading the file: {e}\n".encode())
 
 def logout(client_sok):
     global curauth, curuser
     curuser=None
     curauth=None
     client_sok.sendall("loged out godbey\n".encode())
+
+def add_file(client_sok):
+    global curauth
+    if curauth == 0:
+        while True:
+            base_folder = "C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files"
+
+            contents = os.listdir(base_folder)
+            if not contents:
+                client_sok.sendall("No folders are available to view.\n".encode())
+                return
+            ncontents="\n ".join(contents)
+            client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n".encode())
+            client_sok.sendall(f"which folder do you want to add to 0-{contents[-1]} -1 to quit:\n".encode())
+            try:
+                acsfo=client_sok.recv(1024).decode().strip()
+                if acsfo == "-1":
+                    client_sok.sendall("leaving folder view\n".encode())
+                    return
+                
+                if not acsfo in contents:
+                    raise ValueError
+                
+                acsfo=int(acsfo)#cause folder are ints that indicate theyr neded authlevel
+            except:
+                client_sok.sendall(f"you have to pick an existing folder or -1 to leave\n".encode())
+                continue
+
+
+            while True:
+                folder_path = os.path.join(base_folder, str(acsfo))
+                contents = os.listdir(folder_path)
+
+                if not contents:
+                    client_sok.sendall("No files are available to view.\n".encode())
+                    break
+
+                ncontents="\n-".join(contents)
+                client_sok.sendall(f"these are the aviable files: \n {ncontents}\n".encode())
+                client_sok.sendall(f"chose wich file to create or overwrite by name or -1 to go back to chosing folders:\n".encode())
+                
+                acs=client_sok.recv(1024).decode().strip()
+                if acs == "-1":
+                     break #before i caled files() but it dint really work and an atacker could perform a stackoverflow 
+                
+                
+                file_path = os.path.join(folder_path, acs)
+                if not file_path.startswith(base_folder):
+                    client_sok.sendall("Invalid path. Aborting.\n".encode())
+                    continue
+
+                
+
+                try:
+                    with open(file_path, "w") as file:
+                        client_sok.sendall("file created\n".encode())
+                        client_sok.sendall("what do you want to write to it:\n".encode())
+                        uin=client_sok.recv(2048).decode().strip()
+                        if len(uin)>2048:
+                            client_sok.sendall("input to large aborting\n".encode())
+                            continue
+                        file.write(uin)
+                        client_sok.sendall("file was sucesfully created/overwriten\n".encode())
+                except Exception as e:
+                    client_sok.sendall(f"eror reading the file: {e}\n".encode())
+        
+
+
+    else:
+        client_sok.sendall(f"you dont have the aucht level to add files your curetn authlevel is:{curauth}\n".encode())
 
 
 
@@ -295,6 +363,10 @@ try:
 
             elif dat=="log out":
                 logout(client_sok)
+                continue
+
+            elif dat=="add file":
+                add_file(client_sok)
                 continue
 
             client_sok.sendall(response.encode())
