@@ -9,6 +9,8 @@ failed_atempts={}
 host= '127.0.0.1'
 port=12345
 
+version="livOS 1.0"
+
 with open("userf.txt", "r") as file: #read the files into the arays 
     content = file.read()
     users=content.split(",")
@@ -36,17 +38,19 @@ print(f"server is listening on {host}:{port}")
 
 def help(client_sok):
     response =(
-                "---------- \n"
-                "This is a WIP goffi ah server \n" 
-                "livOS V 1.0 juhu finaly\n" "---------- \n" 
-                "comands: \n" "-Help \n"
-                "-kill \n"
-                "-echo \n"
-                "-login\n"
-                "-add user\n"
-                "-remove user\n"
-                "-files\n"
-                "-logout\n")
+                "---------- \n" 
+                f"{version}\n"
+                "---------- \n" 
+                "comands: \n" 
+                "-Help: displays this mesage \n"
+                "-kill: terminate your sesion \n"
+                "-echo: Echos back a mesage\n"
+                "-login: login whit you credentials\n"
+                "-add user: add a new user root\n"
+                "-remove user: remove a user root\n"
+                "-files: view files depending on you authlevel\n"
+                "-logout: reset the curent auth and username\n"
+                "-add file: add a file to a foler root\n")
     client_sok.sendall(response.encode())
 
 def login(client_sok):
@@ -327,7 +331,7 @@ try:
             if not dat:
                 print(f"Client {client_adr} disconnected.")
                 break
-            response="try help for a list of comands\n"
+            response=f"{version} \n try help for a list of comands\n"
 
             print("dat:"+dat)
 
