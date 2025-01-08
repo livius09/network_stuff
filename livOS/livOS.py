@@ -9,19 +9,19 @@ failed_atempts={}
 host= '127.0.0.1'
 port=12345
 
-version="livOS 1.0"
+version="livOS 1.1"
 
-with open("userf.txt", "r") as file: #read the files into the arays 
+with open("login/userf.txt", "r") as file: #read the files into the arays 
     content = file.read()
     users=content.split(",")
 
 
-with open("pswf.txt", "r") as file:  
+with open("login/pswf.txt", "r") as file:  
     content = file.read()
     paswords=content.split(",")
 
 
-with open("authf.txt", "r") as file:  
+with open("login/authf.txt", "r") as file:  
     content = file.read()
     auths=content.split(",")
 
@@ -41,16 +41,16 @@ def help(client_sok):
                 "---------- \n" 
                 f"{version}\n"
                 "---------- \n" 
-                "comands: \n" 
+                "comands: \n"
                 "-Help: displays this mesage \n"
                 "-kill: terminate your sesion \n"
                 "-echo: Echos back a mesage\n"
                 "-login: login whit you credentials\n"
-                "-add user: add a new user root\n"
-                "-remove user: remove a user root\n"
+                "-add user: add a new user (root)\n"
+                "-remove user: remove a user (root)\n"
                 "-files: view files depending on you authlevel\n"
                 "-logout: reset the curent auth and username\n"
-                "-add file: add a file to a foler root\n")
+                "-add file: add a file to a foler (root)\n")
     client_sok.sendall(response.encode())
 
 def login(client_sok):
@@ -125,15 +125,15 @@ def add_user(client_sok):
                 continue
             break
         try:
-            with open("userf.txt", "a") as file:
+            with open("login/userf.txt", "a") as file:
                 file.write(f",{newuser}") #write it to the file 
             users.append(newuser) #and to the arr so the new user can directly login 
 
-            with open("pswf.txt", "a") as file:
+            with open("login/pswf.txt", "a") as file:
                 file.write(f",{hashlib.sha256(newpasword.encode()).hexdigest()}")
             paswords.append(hashlib.sha256(newpasword.encode()).hexdigest())
 
-            with open("authf.txt", "a") as file:
+            with open("login/authf.txt", "a") as file:
                 file.write(f",{newauth}")
             auths.append(newauth)
 
@@ -156,13 +156,13 @@ def rm_user(client_sok):
                     paswords.pop(rmid)#remove all theyr traces
                     auths.pop(rmid)
                                 
-                    with open("userf.txt", "w") as file:
+                    with open("login/userf.txt", "w") as file:
                         file.write(",".join(users))
 
-                    with open("pswf.txt", "w") as file:
+                    with open("login/pswf.txt", "w") as file:
                         file.write(",".join(paswords))
 
-                    with open("authf.txt", "w") as file:
+                    with open("login/authf.txt", "w") as file:
                         file.write(",".join(map(str,auths))) 
                                 
                     client_sok.sendall(f"sucsesfuly removed user {rmuser}\n".encode())
@@ -182,9 +182,15 @@ def rm_user(client_sok):
 def files(client_sok):
     global curuser, curauth
     
+    base_folder = os.path.abspath("files")
     while True:
-        folder_path = "C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files"
-        contents = os.listdir(folder_path)
+        
+        try:
+            contents = os.listdir(base_folder)
+        except FileNotFoundError:
+            client_sok.sendall("Base folder not found.\n".encode())
+            return
+        
         if not contents:
             client_sok.sendall("No folders are available to view.\n".encode())
             return
@@ -210,9 +216,14 @@ def files(client_sok):
             client_sok.sendall(f"you dont have the permision to view this folder your curent authlevel is:{curauth}\n".encode())
             continue
 
+        folder_path = os.path.join(base_folder, str(acsfo))
+        if not os.path.abspath(folder_path).startswith(base_folder):
+            client_sok.sendall("Invalid path. Aborting.\n".encode())
+            continue
+
 
         while True:
-            folder_path = f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}"
+
             contents = os.listdir(folder_path)
             if not contents:
                 client_sok.sendall("No files are available to view.\n".encode())
@@ -231,9 +242,13 @@ def files(client_sok):
                 client_sok.sendall(f"you have to pick an existing file or -1 to leave\n".encode())
                 continue
             
+            file_path = os.path.join(folder_path, acs)
+            if not os.path.abspath(file_path).startswith(base_folder):
+                client_sok.sendall("Invalid file path. Aborting.\n".encode())
+                continue
 
             try:
-                with open(f"C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files/{acsfo}/{acs}", "r") as file:
+                with open(file_path) as file:
                     client_sok.sendall(f"{file.read()}\n".encode())
             except FileNotFoundError as bals:
                 client_sok.sendall(f"file {acs} doese not exist\n {bals}".encode())
@@ -251,7 +266,7 @@ def add_file(client_sok):
     global curauth
     if curauth == 0:
         while True:
-            base_folder = "C:/Users/Levi/Documents/GitHub/network_stuff/livOS/files"
+            base_folder = os.path.abspath("files")
 
             contents = os.listdir(base_folder)
             if not contents:
@@ -274,9 +289,14 @@ def add_file(client_sok):
                 client_sok.sendall(f"you have to pick an existing folder or -1 to leave\n".encode())
                 continue
 
+            folder_path = os.path.join(base_folder, str(acsfo))
+            if not os.path.abspath(folder_path).startswith(base_folder):
+                client_sok.sendall("Invalid folder path. Aborting.\n".encode())
+                continue
+
 
             while True:
-                folder_path = os.path.join(base_folder, str(acsfo))
+                
                 contents = os.listdir(folder_path)
 
                 if not contents:
@@ -294,7 +314,7 @@ def add_file(client_sok):
                 
                 file_path = os.path.join(folder_path, acs)
                 if not file_path.startswith(base_folder):
-                    client_sok.sendall("Invalid path. Aborting.\n".encode())
+                    client_sok.sendall("Invalid file path. Aborting.\n".encode())
                     continue
 
                 
