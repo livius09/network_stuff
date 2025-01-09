@@ -188,11 +188,11 @@ def files(client_sok):
         try:
             contents = os.listdir(base_folder)
         except FileNotFoundError:
-            client_sok.sendall("Base folder not found.\n".encode())
+            client_sok.sendall("-1 Base folder not found.\n".encode())
             return
         
         if not contents:
-            client_sok.sendall("No folders are available to view.\n".encode())
+            client_sok.sendall("-1 No folders are available to view.\n".encode())
             return
         ncontents="\n ".join(contents)
         client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n".encode())
@@ -208,17 +208,17 @@ def files(client_sok):
             
             acsfo=int(acsfo)#cause folder are ints that indicate theyr neded authlevel
         except:
-            client_sok.sendall(f"you have to pick an existing folder or -1 to leave\n".encode())
+            client_sok.sendall(f"-2 you have to pick an existing folder or -1 to leave\n".encode())
             continue
         
         
         if curauth is None or acsfo < curauth:
-            client_sok.sendall(f"you dont have the permision to view this folder your curent authlevel is:{curauth}\n".encode())
+            client_sok.sendall(f"-2 you dont have the permision to view this folder your curent authlevel is:{curauth}\n".encode())
             continue
 
         folder_path = os.path.join(base_folder, str(acsfo))
         if not os.path.abspath(folder_path).startswith(base_folder):
-            client_sok.sendall("Invalid path. Aborting.\n".encode())
+            client_sok.sendall("-2 Invalid path. Aborting.\n".encode())
             continue
 
 
@@ -226,7 +226,7 @@ def files(client_sok):
 
             contents = os.listdir(folder_path)
             if not contents:
-                client_sok.sendall("No files are available to view.\n".encode())
+                client_sok.sendall("-1 No files are available to view.\n".encode())
                 break
 
             ncontents="\n-".join(contents)
@@ -239,22 +239,22 @@ def files(client_sok):
                 if not acs in contents:
                     raise ValueError
             except:
-                client_sok.sendall(f"you have to pick an existing file or -1 to leave\n".encode())
+                client_sok.sendall(f"-2 you have to pick an existing file or -1 to leave\n".encode())
                 continue
             
             file_path = os.path.join(folder_path, acs)
             if not os.path.abspath(file_path).startswith(base_folder):
-                client_sok.sendall("Invalid file path. Aborting.\n".encode())
+                client_sok.sendall("-2 Invalid file path. Aborting.\n".encode())
                 continue
 
             try:
                 with open(file_path) as file:
                     client_sok.sendall(f"{file.read()}\n".encode())
             except FileNotFoundError as bals:
-                client_sok.sendall(f"file {acs} doese not exist\n {bals}".encode())
+                client_sok.sendall(f"-2 file {acs} doese not exist\n {bals}".encode())
                 continue
             except Exception as e:
-                client_sok.sendall(f"eror reading the file: {e}\n".encode())
+                client_sok.sendall(f"-2 eror reading the file: {e}\n".encode())
 
 def logout(client_sok):
     global curauth, curuser
@@ -342,6 +342,7 @@ def add_file(client_sok):
 
 try:
     while True:  
+        global client_sok
         
         client_sok, client_adr = serv.accept()
         print(f"connection from {client_adr}")
