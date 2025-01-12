@@ -3,6 +3,7 @@ import socket
 import hashlib
 import os
 import hmac
+import time
 
 failed_atempts={}
 
@@ -196,6 +197,7 @@ def files(client_sok):
             return
         ncontents="\n ".join(contents)
         client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n".encode())
+        time.sleep(0.1)
         client_sok.sendall(f"which folder do you want to view 0-{contents[-1]} -1 to quit:\n".encode())
         try:
             acsfo=client_sok.recv(1024).decode().strip()
@@ -231,6 +233,7 @@ def files(client_sok):
 
             ncontents="\n-".join(contents)
             client_sok.sendall(f"these are the aviable files: \n {ncontents}\n".encode())
+            time.sleep(0.1)
             client_sok.sendall(f"chose wich to view by name or -1 to go back to chosing folders:\n".encode())
             try:
                 acs=client_sok.recv(1024).decode().strip()

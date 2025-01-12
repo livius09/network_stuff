@@ -4,6 +4,8 @@ import os
 #client_socket.sendall("".encode())
 #client_socket.recv(1024).decode()
 
+os.chdir("livOS_client")
+
 HOST = '127.0.0.1'
 PORT = 12345
 
@@ -17,6 +19,7 @@ version = "client for livOS 1.1"
 
 
 def download(client_socket):
+    #client_socket.settimeout(2)
     base_folder = os.path.abspath("Downloads")
     client_socket.sendall("files".encode())
     while True:
@@ -27,6 +30,7 @@ def download(client_socket):
         print(client_socket.recv(1024).decode())
         foldern=input("path:")
         if foldern=="-1":
+            client_socket.sendall("-1".encode())
             print("leaving folder view")
             break
         client_socket.sendall(foldern.encode())
@@ -38,6 +42,7 @@ def download(client_socket):
             print(client_socket.recv(1024).decode())
             filen=input("file to save:")
             if filen=="-1":
+                client_socket.sendall("-1".encode())
                 break
             client_socket.sendall(filen.encode())
             filedat=str(client_socket.recv(1024).decode())
@@ -49,6 +54,7 @@ def download(client_socket):
                 print(f"file {filen} saved")
 
 def downloader(client_socket):
+    #client_socket.
     base_folder = os.path.abspath("Downloads")
     client_socket.sendall("files".encode())
     print(client_socket.recv(1024).decode())
@@ -100,9 +106,9 @@ try:
               "dowload: pull a file from the server into the clients download dir"
               "exit: close and exit the client"
               )
-            
+        
         elif ein == "download":
-           downloader(client_socket)
+           download(client_socket)
         elif ein == "login":
             login(client_socket,input("username:"),input("pasword:"))
         elif ein == "exit":
