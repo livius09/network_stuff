@@ -1,10 +1,12 @@
 import socket
 import os
+import time
+
 
 #client_socket.sendall("".encode())
 #client_socket.recv(1024).decode()
 
-os.chdir("livOS_client")
+#os.chdir("livOS_client")
 
 HOST = '127.0.0.1'
 PORT = 12345
@@ -54,7 +56,6 @@ def download(client_socket):
                 print(f"file {filen} saved")
 
 def downloader(client_socket):
-    #client_socket.
     base_folder = os.path.abspath("Downloads")
     client_socket.sendall("files".encode())
     print(client_socket.recv(1024).decode())
@@ -86,10 +87,14 @@ def downloader(client_socket):
 
 def login(client_socket,user,pas):
     client_socket.sendall("login".encode())
+    time.sleep(0.1) #every wait is just cause some bs of it being to fast
     d=client_socket.recv(1024).decode()
     client_socket.sendall(user.encode())
+    time.sleep(0.1)
     d=client_socket.recv(1024).decode()
+    time.sleep(0.1)
     client_socket.sendall(pas.encode())
+    time.sleep(0.1)
     print(client_socket.recv(1024).decode())
 
 
