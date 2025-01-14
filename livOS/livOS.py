@@ -252,12 +252,15 @@ def files(client_sok):
 
             try:
                 with open(file_path) as file:
+                    client_sok.sendall(f"size of file:{os.fstat(file.fileno()).st_size}".encode())
                     client_sok.sendall(f"{file.read()}\n".encode())
+                    time.sleep(3.5)
             except FileNotFoundError as bals:
                 client_sok.sendall(f"-2 file {acs} doese not exist\n {bals}".encode())
                 continue
             except Exception as e:
                 client_sok.sendall(f"-2 eror reading the file: {e}\n".encode())
+            
 
 def logout(client_sok):
     global curauth, curuser

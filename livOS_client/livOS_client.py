@@ -47,13 +47,44 @@ def download(client_socket):
                 client_socket.sendall("-1".encode())
                 break
             client_socket.sendall(filen.encode())
-            filedat=str(client_socket.recv(1024).decode())
-            if not filedat.startswith("-2"):
-                file_path = os.path.join(base_folder, filen)
-                with open(file_path,"w") as file:
-                    file.write(filedat)
-                    file.close()
-                print(f"file {filen} saved")
+
+            filedat=[]
+            filesize=0
+            bytes_received=0
+
+            tmp=str(client_socket.recv(1024).decode())
+
+            if tmp.startswith("-2"):
+                continue
+
+            filesize=int(tmp.split(":")[1])
+
+            print(f"filesize:{filesize}")
+            client_socket.settimeout(2)
+
+            while bytes_received < filesize:
+                client_socket.settimeout(2)
+                try:
+                    data = client_socket.recv(min(1024, filesize - bytes_received))
+                except:
+                    break
+                if not data:
+                    break
+                filedat.append(data)
+                bytes_received += len(data)
+                print(f"bytes recived:{bytes_received}")
+
+            client_socket.settimeout(None)
+
+            print("recived data")
+
+            filedat=b"".join(filedat)
+            
+
+            file_path = os.path.join(base_folder, filen)
+            with open(file_path,"wb") as file:
+                file.write(filedat)
+            print(f"file {filen} saved")
 
 def downloader(client_socket):
     base_folder = os.path.abspath("Downloads")
