@@ -29,7 +29,6 @@ def download(client_socket):
         if first.startswith("-1"):
             break
         print(first)
-        print(client_socket.recv(1024).decode())
         foldern=input("path:")
         if foldern=="-1":
             client_socket.sendall("-1".encode())
@@ -37,20 +36,15 @@ def download(client_socket):
             break
         client_socket.sendall(foldern.encode())
         while True:
-            third=client_socket.recv(1024).decode()
-            if third.startswith("-2"):
+            second=client_socket.recv(1024).decode()
+            if second.startswith("-2"):
                 break
-            print(third)
-            print(client_socket.recv(1024).decode())
+            print(second)
             filen=input("file to save:")
             if filen=="-1":
                 client_socket.sendall("-1".encode())
                 break
             client_socket.sendall(filen.encode())
-
-            filedat=[]
-            filesize=0
-            bytes_received=0
 
             tmp=str(client_socket.recv(1024).decode())
 
@@ -60,21 +54,22 @@ def download(client_socket):
             filesize=int(tmp.split(":")[1])
 
             print(f"filesize:{filesize}")
-            client_socket.settimeout(2)
+            client_socket.settimeout(5)
 
-            while bytes_received < filesize:
-                client_socket.settimeout(2)
+            recived=0
+            filedat=[]
+
+            while recived!=filesize:
                 try:
-                    data = client_socket.recv(min(1024, filesize - bytes_received))
+                    dat=client_socket.recv(min(1024,filesize-recived))
                 except:
                     break
-                if not data:
+                if not dat:
                     break
-                filedat.append(data)
-                bytes_received += len(data)
-                print(f"bytes recived:{bytes_received}")
+                recived+= len(dat)
+                filedat.append(dat)
+                print(recived)
 
-            client_socket.settimeout(None)
 
             print("recived data")
 
@@ -86,6 +81,7 @@ def download(client_socket):
                 file.write(filedat)
             print(f"file {filen} saved")
 
+client_socket.getblocking
 def downloader(client_socket):
     base_folder = os.path.abspath("Downloads")
     client_socket.sendall("files".encode())

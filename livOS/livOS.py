@@ -51,7 +51,7 @@ def help(client_sok):
                 "-remove user: remove a user (root)\n"
                 "-files: view files depending on you authlevel\n"
                 "-logout: reset the curent auth and username\n"
-                "-add file: add a file to a foler (root)\n")
+                "-add file: add a file to a folder (root)\n")
     client_sok.sendall(response.encode())
 
 def login(client_sok):
@@ -196,9 +196,7 @@ def files(client_sok):
             client_sok.sendall("-1 No folders are available to view.\n".encode())
             return
         ncontents="\n ".join(contents)
-        client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n".encode())
-        time.sleep(0.1)
-        client_sok.sendall(f"which folder do you want to view 0-{contents[-1]} -1 to quit:\n".encode())
+        client_sok.sendall(f"these are the aviable folders: \n {ncontents}\n which folder do you want to view 0-{contents[-1]} -1 to quit:\n".encode())
         try:
             acsfo=client_sok.recv(1024).decode().strip()
             if acsfo == "-1":
@@ -232,9 +230,8 @@ def files(client_sok):
                 break
 
             ncontents="\n-".join(contents)
-            client_sok.sendall(f"these are the aviable files: \n {ncontents}\n".encode())
-            time.sleep(0.1)
-            client_sok.sendall(f"chose wich to view by name or -1 to go back to chosing folders:\n".encode())
+            client_sok.sendall(f"these are the aviable files: \n {ncontents}\n chose wich to view by name or -1 to go back to chosing folders:\n".encode())
+
             try:
                 acs=client_sok.recv(1024).decode().strip()
                 if acs == "-1":
@@ -251,16 +248,17 @@ def files(client_sok):
                 continue
 
             try:
-                with open(file_path) as file:
-                    client_sok.sendall(f"size of file:{os.fstat(file.fileno()).st_size}".encode())
-                    client_sok.sendall(f"{file.read()}\n".encode())
-                    time.sleep(3.5)
+                with open(file_path,"rb") as file:
+                    filesize=os.fstat(file.fileno()).st_size
+                    client_sok.sendall(f"size of file:{filesize}".encode())
+                    client_sok.sendall(file.read())
+                    print(f"sending file {file.name} of size:{filesize}")
             except FileNotFoundError as bals:
                 client_sok.sendall(f"-2 file {acs} doese not exist\n {bals}".encode())
                 continue
             except Exception as e:
                 client_sok.sendall(f"-2 eror reading the file: {e}\n".encode())
-            
+            time.sleep(0.1)
 
 def logout(client_sok):
     global curauth, curuser
