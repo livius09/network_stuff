@@ -46,7 +46,7 @@ try:
 
             dat = client_sok.recv(1024)
             if not dat:
-                continue # Exit loop if no data
+                break # Exit loop if no data
 
             try:
                 dat = dat.decode().strip()
