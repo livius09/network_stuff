@@ -36,7 +36,7 @@ not_found = (
 
 try:
     while True:  
-        global client_sok
+       
         
         client_sok, client_adr = serv.accept()
         
@@ -45,6 +45,7 @@ try:
         while True:
 
             dat = client_sok.recv(1024)
+            #print(dat.decode())
             if not dat:
                 break # Exit loop if no data
 
