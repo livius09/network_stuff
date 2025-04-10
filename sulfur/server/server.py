@@ -6,7 +6,7 @@ from datetime import datetime
 host= '127.0.0.1'
 port=12345
 
-version="sulfur server 0.1"
+version="sulfur server 1"
 
 serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
