@@ -35,8 +35,8 @@ while True:
         # Create the hash
         hash_object = hashlib.sha256(data_to_hash.encode())
         hash = hash_object.hexdigest()
-        with open("sulfur/server/log.txt","a") as file:
-                        file.write(hash+","+now+","+name+client_adr+"\n")
+        with open("server/log.txt","a") as file:
+                        file.write(hash+","+now+","+name+"\n")
 
         client_sok.sendall(hash.encode())
         
