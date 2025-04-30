@@ -36,7 +36,7 @@ while True:
         hash_object = hashlib.sha256(data_to_hash.encode())
         hash = hash_object.hexdigest()
         with open("server/log.txt","a") as file:
-                        file.write(hash+","+now+","+name+"\n")
+                        file.write("\n"+hash+","+now+","+name)
 
         client_sok.sendall(hash.encode())
         
