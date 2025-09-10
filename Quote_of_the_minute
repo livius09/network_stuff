@@ -1,0 +1,91 @@
+import socket
+import random
+import threading
+import time
+
+# File parsing with better error handling
+try:
+    with open("Quotes.txt", "r") as file:
+        lines = file.readlines()
+    
+    if not lines:
+        raise ValueError("File is empty")
+    
+    all_number = int(lines[0].strip())
+    quotes = []
+    list_num = []
+    
+    for i, line in enumerate(lines[1:], 2):
+        line: str = line.strip()
+        
+        if not line:
+            continue
+            
+        if ";" not in line:
+            raise ValueError(f"Missing ';' in line {i}")
+        
+        if line.count(";")!=1:
+            continue
+
+        if len(line)>512:
+            continue
+            
+        parts = line.split(";", 1)
+        quotes.append(parts[0].strip())
+        list_num.append(int(parts[1].strip()))
+        
+except FileNotFoundError:
+    print("Error: Quotes.txt file not found")
+    exit(1)
+except Exception as e:
+    print(f"Error parsing file: {e}")
+    exit(1)
+
+if not quotes:
+    print("Error: No quotes found in file")
+    exit(1)
+
+# Thread-safe quote updating
+cur_num = 0
+cur_num_lock = threading.Lock()
+
+def update_quote():
+    global cur_num
+    while True:
+        with cur_num_lock:
+            cur_num = random.randint(0, len(quotes)-1)
+        time.sleep(60)
+
+# Daemon thread for clean shutdown
+threading.Thread(target=update_quote, daemon=True).start()
+
+# Server setup
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
+
+try:
+    server.bind(("127.0.0.1", 17))
+    server.listen(5)
+    print("Started Quote of the minute server")
+    print("Listening on port 17...")
+    
+    while True:
+        try:
+            sock, addr = server.accept()
+            with cur_num_lock:
+                quote = quotes[cur_num]
+            sock.send(f"{quote}\n".encode("utf-8"))
+            sock.shutdown(socket.SHUT_WR)  # Send FIN packet
+            sock.close()
+        except Exception as e:
+            print(f"Error handling client: {e}")
+            if 'sock' in locals():
+                try:
+                    sock.close() # type: ignore
+                except:
+                    pass
+                    
+except Exception as e:
+    print(f"Server error: {e}")
+finally:
+    server.close()
