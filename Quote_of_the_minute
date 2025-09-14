@@ -1,3 +1,5 @@
+import json
+from operator import add
 import socket
 import random
 import threading
@@ -5,35 +7,18 @@ import time
 
 # File parsing with better error handling
 try:
-    with open("Quotes.txt", "r") as file:
-        lines = file.readlines()
+    with open("Quotes.json", "r") as file:
+        lines = file.read()
+
     
     if not lines:
         raise ValueError("File is empty")
     
-    all_number = int(lines[0].strip())
-    quotes = []
-    list_num = []
     
-    for i, line in enumerate(lines[1:], 2):
-        line: str = line.strip()
-        
-        if not line:
-            continue
-            
-        if ";" not in line:
-            raise ValueError(f"Missing ';' in line {i}")
-        
-        if line.count(";")!=1:
-            continue
+    quotes:list[list[str|int]] = json.loads(lines)
 
-        if len(line)>512:
-            continue
-            
-        parts = line.split(";", 1)
-        quotes.append(parts[0].strip())
-        list_num.append(int(parts[1].strip()))
-        
+  
+    print(quotes)     
 except FileNotFoundError:
     print("Error: Quotes.txt file not found")
     exit(1)
@@ -45,38 +30,75 @@ if not quotes:
     print("Error: No quotes found in file")
     exit(1)
 
+if not isinstance(quotes[0],int):
+    print("whole counter missing")
+    exit(1)
+
+
 # Thread-safe quote updating
 cur_num = 0
-cur_num_lock = threading.Lock()
+
+quotes_lock = threading.Lock()
+
+addr :str= "127.0.0.1"
+
+
+def serv_exit():
+    with open("Quotes.json","w") as file:
+        file.write(json.dumps(quotes))
+
+    exit()
+
 
 def update_quote():
     global cur_num
-    while True:
-        with cur_num_lock:
-            cur_num = random.randint(0, len(quotes)-1)
-        time.sleep(60)
-
-# Daemon thread for clean shutdown
-threading.Thread(target=update_quote, daemon=True).start()
-
-# Server setup
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
-
-try:
-    server.bind(("127.0.0.1", 17))
-    server.listen(5)
-    print("Started Quote of the minute server")
-    print("Listening on port 17...")
+    try:
+        while True:
+            with quotes_lock:
+                cur_num = random.randint(1, len(quotes)-2)
+            time.sleep(60)
+    except:
+        serv_exit()
     
+
+def new_quote():
+    #recive
+    # Server setup
+    global addr
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
+
+    server.bind((addr, 1700))
+    server.listen(5)
+
+    print("Started input server")
+    print("Listening on port 1700")
+
+    global quotes
+
     while True:
         try:
             sock, addr = server.accept()
-            with cur_num_lock:
-                quote = quotes[cur_num]
-            sock.send(f"{quote}\n".encode("utf-8"))
+
+            sock.send("Quote of the minute input\ninput a quote to be displayed:".encode("utf-8"))
+            recived_quote = sock.recv(1024).decode().strip()
+
+            verify_result=verify_quotes(recived_quote)
+            if(verify_result==""):
+                sock.send("quote sucessfully enterd into portfolio and will be able to displayed".encode())
+                with quotes_lock:
+                    quotes.append([recived_quote,0])
+            else:
+                sock.send(verify_result.encode())
+
+
             sock.shutdown(socket.SHUT_WR)  # Send FIN packet
             sock.close()
+
+        except KeyboardInterrupt:
+            serv_exit()
+
         except Exception as e:
             print(f"Error handling client: {e}")
             if 'sock' in locals():
@@ -84,8 +106,74 @@ try:
                     sock.close() # type: ignore
                 except:
                     pass
-                    
+
+def verify_quotes(user_quote:str) -> str:
+    if not user_quote:
+        return "no quote given"
+    
+    if len(user_quote) >= 512:
+        return "quote to long"
+    
+    if user_quote.count('"') or user_quote.count("'"):
+        return "quote contains special chars"
+    
+    with quotes_lock:
+        for test_quote in quotes[1:]:
+            if test_quote[0] == user_quote:
+                return "quote already exists"
+    
+    #probably some other stuff
+
+
+    return ""
+
+
+# Daemon thread for clean shutdown
+threading.Thread(target=update_quote, daemon=True).start()
+threading.Thread(target=new_quote, daemon=True).start()
+
+
+# Server setup
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
+
+try:
+    server.bind((addr, 17))
+    server.listen(5)
+
+    print("Started Quote of the minute server")
+    print("Listening on port 17...")
+    
+    while True:
+        try:
+            sock, addr = server.accept()
+            with quotes_lock:
+                cur_quote = quotes[cur_num][0]
+                quotes[cur_num][1]+=1 # type: ignore 
+                quotes[0]+=1 # type: ignore
+                #print(quotes)
+
+            sock.send(f"{cur_quote}\n".encode("utf-8"))
+            sock.shutdown(socket.SHUT_WR)  # Send FIN packet
+            sock.close()
+        except KeyboardInterrupt:
+            serv_exit()
+        except Exception as e:
+            print(f"Error handling client: {e}")
+            if 'sock' in locals():
+                try:
+                    sock.close() # type: ignore
+                except:
+                    pass
+
+except KeyboardInterrupt:
+            serv_exit()
+
 except Exception as e:
     print(f"Server error: {e}")
+
+    serv_exit()
+
 finally:
     server.close()
+
