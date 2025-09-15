@@ -5,39 +5,45 @@ import random
 import threading
 import time
 
+quotes= []
+
 # File parsing with better error handling
-try:
-    with open("Quotes.json", "r") as file:
-        lines = file.read()
+def parse_file():
+    try:
+        with open("Quotes.json", "r") as file:
+            lines = file.read()
+
+        
+        if not lines:
+            raise ValueError("File is empty")
+        
+        global quotes
+        
+        
+        quotes:list[list[str|int]] = json.loads(lines)
 
     
-    if not lines:
-        raise ValueError("File is empty")
-    
-    
-    quotes:list[list[str|int]] = json.loads(lines)
+        print(quotes)     
+    except FileNotFoundError:
+        print("Error: Quotes.txt file not found")
+        exit(1)
+    except Exception as e:
+        print(f"Error parsing file: {e}")
+        exit(1)
 
-  
-    print(quotes)     
-except FileNotFoundError:
-    print("Error: Quotes.txt file not found")
-    exit(1)
-except Exception as e:
-    print(f"Error parsing file: {e}")
-    exit(1)
+    if not quotes:
+        print("Error: No quotes found in file")
+        exit(1)
 
-if not quotes:
-    print("Error: No quotes found in file")
-    exit(1)
+    if not isinstance(quotes[0],int):
+        print("whole counter missing")
+        exit(1)
 
-if not isinstance(quotes[0],int):
-    print("whole counter missing")
-    exit(1)
 
+parse_file()
 
 # Thread-safe quote updating
 cur_num = 0
-
 quotes_lock = threading.Lock()
 
 addr :str= "127.0.0.1"
@@ -48,6 +54,12 @@ def serv_exit():
         file.write(json.dumps(quotes))
 
     exit()
+
+def pp_quotes():
+    with quotes_lock:
+        for i in range(1,len(quotes)):
+            print(f"{i}: {quotes[i][0]} : {quotes[i][1]}")
+
 
 
 def update_quote():
