@@ -4,3 +4,5 @@
 [2025-09-17 12:35:54] [94mINFO[0m starting terminal
 [2025-09-17 12:35:54] [94mINFO[0m Listening on port 1700
 [2025-09-17 12:35:54] [94mINFO[0m listening for comands on 127.0.0.1:100
+[2025-09-17 12:45:10] [94mINFO[0m saved Quotes to file
+[2025-09-17 12:45:12] [94mINFO[0m shuting down server

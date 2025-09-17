@@ -102,9 +102,9 @@ def new_quote():
     global start_addr, quotes
 
     accept_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    accept_serv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
+    accept_serv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    accept_serv.bind((start_addr,TERMINAL_PORT))
+    accept_serv.bind((start_addr, INPUT_SERVER_PORT))
     accept_serv.listen(5)
     accept_serv.settimeout(3)
 
@@ -193,7 +193,8 @@ def terminal():
 
                 csock.sendall(">>".encode(encoding="utf-8"))
 
-                comand =  csock.recv(1024).decode().strip()
+                comand: str =  csock.recv(1024).decode().strip()
+
                 match comand:
                     case "":
                         pass
