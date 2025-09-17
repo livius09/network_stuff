@@ -1,0 +1,6 @@
+[2025-09-17 12:35:54] [94mINFO[0m Started Quote of the minute server
+[2025-09-17 12:35:54] [94mINFO[0m Listening on port 17...
+[2025-09-17 12:35:54] [94mINFO[0m Started input server
+[2025-09-17 12:35:54] [94mINFO[0m starting terminal
+[2025-09-17 12:35:54] [94mINFO[0m Listening on port 1700
+[2025-09-17 12:35:54] [94mINFO[0m listening for comands on 127.0.0.1:100

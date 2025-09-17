@@ -3,63 +3,80 @@ import socket
 import random
 import threading
 import sys
-from datetime import datetime
 import os
+import logging
 
-class logl():
-    ERROR="\033[91mERROR\033[0m"
-    INFO="\033[94mINFO\033[0m"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler("quotes_log.txt", encoding="utf-8"),
+        logging.StreamHandler()  # also log to console
+    ]
+)
+
+logging.addLevelName( logging.INFO, "\033[94m%s\033[0m" % logging.getLevelName(logging.INFO))
+logging.addLevelName( logging.WARNING, "\033[93m%s\033[0m" % logging.getLevelName(logging.WARNING))
+logging.addLevelName( logging.ERROR, "\033[91m%s\033[0m" % logging.getLevelName(logging.ERROR))
+
 
 # File parsing with better error handling
 def parse_file():
+    global file_lock
     try:
         with file_lock:
-            with open("Quotes.json", "r") as file:
-                lines = file.read()
+            with open("Quotes.json", "r",encoding="utf-8") as file:
+                data = file.read()
 
         
-        if not lines:
+        if not data:
             raise ValueError("File is empty")
         
+        if "quotes" not in data or "total_served" not in data:
+            logging.error("Error: Invalid file format")
+            return
         
-        quotes:list[list[str|int]] = json.loads(lines)
+        
+        quotes = json.loads(data)
 
         if not quotes:
-            logprint("Error: No quotes found in file", logl.ERROR)
-            return
-
-        if not isinstance(quotes[0],int):
-            logprint("whole counter missing", "Eror")
+            logging.error("Error: No quotes found in file")
             return
 
     
         return quotes
     
     except FileNotFoundError:
-        logprint("Error: Quotes.json file not found", "Eror")
+        logging.error("Error: Quotes.json file not found")
     except Exception as e:
-        logprint(f"Error parsing file: {e}",logl.ERROR)
-        
+        logging.error(f"Error parsing file: {e}")
 
-def logprint(text: str,level=logl.INFO) -> None:
-    line = f"[{datetime.now().isoformat(sep=' ', timespec='seconds')}] {level} {text}"
-    print(line)
-    with open("quotes_log.txt", "a", encoding="utf-8") as file:
-        file.write(line + "\n")
    
 
 
-
-
-
-
 def save_quotes():
-    with file_lock:
-        with open(".tmp","w") as file:
-            with quotes_lock:
-                file.write(json.dumps(quotes))
-        os.rename(".tmp","Quotes.json")
-    logprint("saved Quotes to file")
+    global file_lock
+    try:
+        
+        with quotes_lock:
+            save_data={
+                "total_served":total_served,
+                "quotes":quotes
+            }
+            
+        with file_lock:
+            with open(".tmp","w") as file:
+                file.write(json.dumps(save_data))
+
+            os.remove("Quotes.json")
+            os.rename(".tmp","Quotes.json")
+
+
+        logging.info("saved Quotes to file")
+    except Exception as e:
+        logging.error(f"there was a problem whit saving the quotes file: {str(e)}")
 
 
 def serv_exit():
@@ -70,11 +87,11 @@ def serv_exit():
     
     save_quotes()
 
-    quote_acept_tread.join(timeout=2)
+    quote_acept_thread.join(timeout=2)
     terminal_thread.join(timeout=2)
 
 
-    logprint("shuting down server")
+    logging.info("shuting down server")
     sys.exit()
 
     
@@ -82,34 +99,33 @@ def serv_exit():
 def new_quote():
     #recive
     # Server setup
-    global addr
+    global start_addr, quotes
 
     accept_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     accept_serv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
 
-    accept_serv.bind((addr, 1700))
+    accept_serv.bind((start_addr,TERMINAL_PORT))
     accept_serv.listen(5)
     accept_serv.settimeout(3)
 
-    logprint("Started input server")
-    logprint("Listening on port 1700")
+    logging.info("Started input server")
+    logging.info("Listening on port 1700")
 
-    global quotes
 
     while not new_quote_kill.is_set():
         try:
-            asock, addr = server.accept()
+            asock, soaddr = accept_serv.accept()
 
-            asock.send("Quote of the minute input\ninput a quote to be displayed:".encode(encoding="utf-8"))
+            asock.sendall("Quote of the minute input\ninput a quote to be displayed:".encode(encoding="utf-8"))
             recived_quote: str = asock.recv(1024).decode().strip()
 
             verify_result=verify_quotes(recived_quote)
             if(verify_result==""):
-                asock.send("quote sucessfully enterd into portfolio and will be able to displayed".encode(encoding="utf-8"))
+                asock.sendall("quote sucessfully enterd into portfolio and will be able to displayed".encode(encoding="utf-8"))
                 with quotes_lock:
-                    quotes.append([recived_quote,0])
+                    quotes.append({"text": recived_quote, "count": 0})
             else:
-                asock.send(verify_result.encode(encoding="utf-8"))
+                asock.sendall(verify_result.encode(encoding="utf-8"))
 
 
             asock.shutdown(socket.SHUT_WR)  # Send FIN packet
@@ -122,7 +138,7 @@ def new_quote():
             pass
 
         except Exception as e:
-            logprint(f"Error handling client: {e}", logl.ERROR)
+            logging.error(f"Error handling client: {e}")
             if 'asock' in locals():
                 try:
                     asock.close() # type: ignore
@@ -141,8 +157,8 @@ def verify_quotes(user_quote:str) -> str:
         return "quote contains special chars"
     
     with quotes_lock:
-        for test_quote in quotes[1:]:
-            if test_quote[0] == user_quote:
+        for test_quote in quotes:
+            if test_quote["text"] == user_quote:
                 return "quote already exists"
     
     #probably some other stuff
@@ -150,105 +166,128 @@ def verify_quotes(user_quote:str) -> str:
 
     return ""
 
-def pp_quotes():
-    with quotes_lock:
-        for i in range(1,len(quotes)):
-            logprint(f"{i}: {quotes[i][0]} : {quotes[i][1]}")
-
-
 
 def terminal():
     
     comand_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     comand_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
 
-    comand_sock.bind(("127.0.0.1", 100))
-    comand_sock.listen(1)
+    comand_sock.bind(("127.0.0.1", TERMINAL_PORT))
+    comand_sock.listen(3)
     comand_sock.settimeout(3)
 
-    global quotes
+    logging.info("starting terminal")
+    logging.info("listening for comands on 127.0.0.1:100")
+
+    global quotes, total_served
         
     
     while not terminal_kill.is_set():
 
         try:
 
-            csock, addr = comand_sock.accept()
+            csock, teaddr = comand_sock.accept()
 
-            comand =  csock.recv(1024).decode().strip()
-            match comand:
-                case "help":
-                    csock.sendall("help: print this\n"
-                        "exit: shutdown server\n"
-                        "save: save the curent Qoutes to file\n"
-                        "load: load old quotes from file\n"
-                        "add : add a quote from comand line\n"
-                        "rm  : remove a Quote by index (used whit pri)\n"
-                        "pri: prints all curent Quotes\n".encode(encoding="utf-8"))
+            csock.sendall("comand socket\n".encode(encoding="utf-8"))
+            while True:
+
+                csock.sendall(">>".encode(encoding="utf-8"))
+
+                comand =  csock.recv(1024).decode().strip()
+                match comand:
+                    case "":
+                        pass
+                    case "help":
+                        csock.sendall("help: print this\n"
+                            "exit: shutdown server\n"
+                            "save: save the curent Qoutes to file\n"
+                            "load: load old quotes from file\n"
+                            "add: add a quote from comand line\n"
+                            "del: remove a Quote by index (used whit pri)\n"
+                            "pri/ls: prints all curent Quotes\n".encode(encoding="utf-8"))
+                        
+                    case "pri" | "ls":
                     
-                case "pri":
-                
-                    with quotes_lock:
-                        out = "\n".join(f"{i}: {q[0]} : {q[1]}" for i, q in enumerate(quotes[1:], 1))
-                        csock.sendall((out + "\n").encode(encoding="utf-8"))
-
-                case "exit":
-                    csock.sendall("shuting down server".encode(encoding="utf-8"))
-                    csock.close()
-                    comand_sock.close()
-                    serv_exit()
-
-                case "save":
-                    save_quotes()
-
-                case "load":
-                    tmp = parse_file()
-                    if tmp:
-                        quotes[:] = tmp               
-                        csock.sendall("sucesfull loaded the Quotes".encode(encoding="utf-8"))
-                    else:
-                        logprint("load failed")
-                        csock.sendall("failed to load the quotes from file".encode(encoding="utf-8"))
+                        with quotes_lock:
+                            out = "\n".join(f"{i}: {q['text']} : {q['count']}" for i, q in enumerate(quotes, 1))
+                            csock.sendall((out + "\n").encode(encoding="utf-8"))
 
 
-                
-                case "add":
+                    case "exit":
+                        csock.sendall("shuting down server".encode(encoding="utf-8"))
+                        csock.close()
+                        comand_sock.close()
+                        serv_exit()
 
-                    csock.sendall("input a new Quote: ".encode(encoding="utf-8"))
-                    new_quoteer = csock.recv(1024).decode().strip()
+                    case "save":
+                        save_quotes()
+
+                    case "load":
+                        load_data = parse_file()
+                        if load_data:
+                            quotes[:] = load_data["quotes"]
+                            total_served= load_data["total_served"]     
+
+                            csock.sendall("sucesfull loaded the Quotes".encode(encoding="utf-8"))
+                            logging.info("reloaded all quotes")
+                        else:
+                            logging.error("load failed")
+                            csock.sendall("failed to load the quotes from file".encode(encoding="utf-8"))
+
+
                     
+                    case "add":
 
-                    with quotes_lock:
+                        csock.sendall("input a new Quote: ".encode(encoding="utf-8"))
+                        new_quoteer = csock.recv(1024).decode().strip()
+                        
+
+                        
+                        print("testing")
                         result = verify_quotes(new_quoteer)
                         if result == "":
-                            quotes.append([new_quoteer,0])
-                            csock.sendall("sucesfull added the Quote".encode(encoding="utf-8"))
-                            logprint(f"added a new quote: {new_quoteer}")
+                            with quotes_lock:
+                                quotes.append({"text": new_quoteer, "count": 0})
+                                
+
+                            csock.sendall("sucesfull added the Quote\n".encode(encoding="utf-8"))
+                            logging.warning(f"added a new quote: {new_quoteer}")
                         else:
                             csock.sendall("Quote wasnt added:".encode(encoding="utf-8"))
                             csock.sendall(result.encode(encoding="utf-8"))
 
-                            logprint("Quote wasnt added:")
-                            logprint(result)
+                            logging.error("Quote wasnt added:")
+                            logging.error(result)
 
-                case "rm":
-                    csock.sendall("input the index of the Quote to delet: ".encode(encoding="utf-8"))
-                    try:
-                        del_index = int(csock.recv(1024).decode().strip())
-                        if del_index ==0:
-                            raise ValueError("index cant be: 0")
-                        
-                        if not (del_index < len(quotes)):
-                            raise ValueError("index must be in range")
-
-                        
-                        with quotes_lock:
-                            quotes.pop(del_index)
+                    case "del":
+                        csock.sendall("input the index of the Quote to delet: ".encode(encoding="utf-8"))
+                        try:
+                            del_index = int(csock.recv(1024).decode().strip())
+                            if not del_index:
+                                raise ValueError("you have to provide an index")
 
 
-                    except Exception as e:
-                        logprint(str(e))
-                        csock.sendall(str(e).encode(encoding="utf-8"))
+                            if del_index == 0:
+                                raise ValueError("index cant be: 0")
+                            
+                            if (del_index > len(quotes)):
+                                raise ValueError("index must be in range")
+
+                            
+                            with quotes_lock:
+                                quotes.pop(del_index-1)
+
+                            logging.warning("quote removed")
+                            csock.sendall("quote removed\n".encode(encoding="utf-8"))
+
+
+                        except Exception as e:
+                            logging.error(f"problem removing quote {str(e)}")
+                            csock.sendall(str(e).encode(encoding="utf-8"))
+
+                    case _:
+                        csock.sendall("comand not recogniced, try help\n".encode(encoding="utf-8"))
+
 
 
 
@@ -259,7 +298,7 @@ def terminal():
             pass
 
         except Exception as e:
-            logprint(f"Error handling client: {e}", logl.ERROR)
+            logging.error(f"Error handling terminal: {e}")
             if 'csock' in locals():
                 try:
                     csock.close()
@@ -275,35 +314,36 @@ def purge_log():
 
 purge_log()
 
-tmp =  parse_file()
-
-if tmp:
-    quotes=tmp
-else:
-    logprint("problem parsing file shuting down", "Eror")
-    exit(1)
-
-
-
-
-
 
 terminal_kill = threading.Event()
 new_quote_kill= threading.Event()
 quote_out_kill= threading.Event()
 
-
 # Thread-safe quote updating
 
 quotes_lock = threading.Lock()
 file_lock   = threading.Lock() 
-addr :str= "127.0.0.1"
+start_addr :str= "127.0.0.1"
+
+QUOTE_SERVER_PORT = 17
+INPUT_SERVER_PORT = 1700
+TERMINAL_PORT     = 100
+
+
+quote_data =  parse_file()
+
+if quote_data:
+    quotes :list[dict]= quote_data["quotes"]
+    total_served=quote_data["total_served"]
+else:
+    logging.error("problem parsing file shuting down")
+    exit(1)
 
 
         
             
 # Daemon thread for clean shutdown
-quote_acept_tread = threading.Thread(target=new_quote, daemon=True)
+quote_acept_thread = threading.Thread(target=new_quote, daemon=True)
 terminal_thread = threading.Thread(target=terminal,daemon=True)
 
 
@@ -313,28 +353,28 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow port reuse
 
 try:
-    server.bind((addr, 17))
+    server.bind((start_addr, QUOTE_SERVER_PORT))
     server.listen(5)
     server.settimeout(3)
 
-    logprint("Started Quote of the minute server")
-    logprint("Listening on port 17...")
+    logging.info("Started Quote of the minute server")
+    logging.info("Listening on port 17...")
 
-    quote_acept_tread.start()
+    quote_acept_thread.start()
     terminal_thread.start()
     
     
     while not quote_out_kill.is_set():
         try:
-            sock, addr = server.accept()
+            sock, serv_addr = server.accept()
             with quotes_lock:
-                cur_num: int=random.randint(1, len(quotes)-1)
-                cur_quote: str | int = quotes[cur_num][0]
-                quotes[cur_num][1]+=1 # type: ignore 
-                quotes[0]+=1 # type: ignore
+                cur_num = random.randint(0, len(quotes) - 1)
+                cur_quote = quotes[cur_num]["text"]
+                quotes[cur_num]["count"] += 1
+                total_served += 1
                 #print(quotes)
 
-            sock.send(f"{cur_quote}\n".encode("utf-8"))
+            sock.sendall(f"{cur_quote}\n".encode("utf-8"))
             sock.shutdown(socket.SHUT_WR)  # Send FIN packet
             sock.close()
         except socket.timeout:
@@ -342,7 +382,7 @@ try:
         except KeyboardInterrupt:
             serv_exit()
         except Exception as e:
-            logprint(f"Error handling client: {e}")
+            logging.error(f"Error handling client: {e}")
             if 'sock' in locals():
                 try:
                     sock.close() # type: ignore
@@ -353,7 +393,7 @@ except KeyboardInterrupt:
     serv_exit()
 
 except Exception as e:
-    logprint(f"Server error: {e}", logl.ERROR)
+    logging.error(f"Server error: {e}")
 
     serv_exit()
 
