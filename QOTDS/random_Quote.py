@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 import logging
 import sys
 
+import logging
+import sys
+from logging.handlers import RotatingFileHandler  # <-- new import
+
 # --- Define colors ---
 RESET = "\033[0m"
 COLORS = {
@@ -45,7 +49,11 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(ColorFormatter())
 
-file_handler = logging.FileHandler("quotes_log.txt", encoding="utf-8")
+file_handler = RotatingFileHandler(
+    "quotes_log.txt",
+    maxBytes=1_000_000,   # 1 MB
+    encoding="utf-8"
+)
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(PlainFormatter())
 
@@ -54,6 +62,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
+
 
 
 #logging.addLevelName( logging.INFO, "\033[94m%s\033[0m" % logging.getLevelName(logging.INFO))
