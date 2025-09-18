@@ -1,8 +1,8 @@
-[2025-09-17 12:35:54] [94mINFO[0m Started Quote of the minute server
-[2025-09-17 12:35:54] [94mINFO[0m Listening on port 17...
-[2025-09-17 12:35:54] [94mINFO[0m Started input server
-[2025-09-17 12:35:54] [94mINFO[0m starting terminal
-[2025-09-17 12:35:54] [94mINFO[0m Listening on port 1700
-[2025-09-17 12:35:54] [94mINFO[0m listening for comands on 127.0.0.1:100
-[2025-09-17 12:45:10] [94mINFO[0m saved Quotes to file
-[2025-09-17 12:45:12] [94mINFO[0m shuting down server
+[2025-09-18 12:02:51] INFO Started Quote of the minute server
+[2025-09-18 12:02:51] INFO Listening on port 127.0.0.1:17
+[2025-09-18 12:02:51] INFO Started input server
+[2025-09-18 12:02:51] INFO starting terminal
+[2025-09-18 12:02:51] INFO Listening on port 127.0.0.1:1700
+[2025-09-18 12:02:51] INFO listening for comands on 127.0.0.1:100
+[2025-09-18 12:06:01] INFO saved Quotes to file
+[2025-09-18 12:06:01] INFO shuting down server

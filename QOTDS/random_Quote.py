@@ -5,21 +5,65 @@ import threading
 import sys
 import os
 import logging
+from datetime import datetime, timedelta
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler("quotes_log.txt", encoding="utf-8"),
-        logging.StreamHandler()  # also log to console
-    ]
-)
+import logging
+import sys
 
-logging.addLevelName( logging.INFO, "\033[94m%s\033[0m" % logging.getLevelName(logging.INFO))
-logging.addLevelName( logging.WARNING, "\033[93m%s\033[0m" % logging.getLevelName(logging.WARNING))
-logging.addLevelName( logging.ERROR, "\033[91m%s\033[0m" % logging.getLevelName(logging.ERROR))
+# --- Define colors ---
+RESET = "\033[0m"
+COLORS = {
+    "INFO": "\033[94m",    # Blue
+    "WARNING": "\033[93m", # Yellow
+    "ERROR": "\033[91m",   # Red
+    "DEBUG": "\033[92m",   # Green
+    "CRITICAL": "\033[95m" # Magenta
+}
+
+class ColorFormatter(logging.Formatter):
+    def format(self, record):
+        log_fmt = "[%(asctime)s] {level} %(message)s"
+        levelname = record.levelname
+        if levelname in COLORS:
+            levelname_colored = f"{COLORS[levelname]}{levelname}{RESET}"
+        else:
+            levelname_colored = levelname
+        formatter = logging.Formatter(
+            log_fmt.format(level=levelname_colored),
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        return formatter.format(record)
+
+class PlainFormatter(logging.Formatter):
+    def format(self, record):
+        log_fmt = "[%(asctime)s] %(levelname)s %(message)s"
+        formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
+        return formatter.format(record)
+
+# --- Handlers ---
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(ColorFormatter())
+
+file_handler = logging.FileHandler("quotes_log.txt", encoding="utf-8")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(PlainFormatter())
+
+# --- Logger ---
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+# --- Example logs ---
+logger.info("This is info")
+logger.warning("This is warning")
+logger.error("This is error")
+
+
+#logging.addLevelName( logging.INFO, "\033[94m%s\033[0m" % logging.getLevelName(logging.INFO))
+#logging.addLevelName( logging.WARNING, "\033[93m%s\033[0m" % logging.getLevelName(logging.WARNING))
+#logging.addLevelName( logging.ERROR, "\033[91m%s\033[0m" % logging.getLevelName(logging.ERROR))
 
 
 # File parsing with better error handling
@@ -35,23 +79,23 @@ def parse_file():
             raise ValueError("File is empty")
         
         if "quotes" not in data or "total_served" not in data:
-            logging.error("Error: Invalid file format")
+            logger.error("Error: Invalid file format")
             return
         
         
         quotes = json.loads(data)
 
         if not quotes:
-            logging.error("Error: No quotes found in file")
+            logger.error("Error: No quotes found in file")
             return
 
     
         return quotes
     
     except FileNotFoundError:
-        logging.error("Error: Quotes.json file not found")
+        logger.error("Error: Quotes.json file not found")
     except Exception as e:
-        logging.error(f"Error parsing file: {e}")
+        logger.error(f"Error parsing file: {e}")
 
    
 
@@ -74,9 +118,9 @@ def save_quotes():
             os.rename(".tmp","Quotes.json")
 
 
-        logging.info("saved Quotes to file")
+        logger.info("saved Quotes to file")
     except Exception as e:
-        logging.error(f"there was a problem whit saving the quotes file: {str(e)}")
+        logger.error(f"there was a problem whit saving the quotes file: {str(e)}")
 
 
 def serv_exit():
@@ -91,9 +135,11 @@ def serv_exit():
     terminal_thread.join(timeout=2)
 
 
-    logging.info("shuting down server")
+    logger.info("shuting down server")
     sys.exit()
 
+def get_runtime() -> timedelta:
+    return datetime.now()-START_TIME
     
 
 def new_quote():
@@ -108,8 +154,8 @@ def new_quote():
     accept_serv.listen(5)
     accept_serv.settimeout(3)
 
-    logging.info("Started input server")
-    logging.info("Listening on port 1700")
+    logger.info("Started input server")
+    logger.info(f"Listening on port {start_addr}:{INPUT_SERVER_PORT}")
 
 
     while not new_quote_kill.is_set():
@@ -138,7 +184,7 @@ def new_quote():
             pass
 
         except Exception as e:
-            logging.error(f"Error handling client: {e}")
+            logger.error(f"Error handling client: {e}")
             if 'asock' in locals():
                 try:
                     asock.close() # type: ignore
@@ -153,7 +199,7 @@ def verify_quotes(user_quote:str) -> str:
     if len(user_quote) >= 512:
         return "quote to long"
     
-    if user_quote.count('"') or user_quote.count("'"):
+    if user_quote.count('"'):
         return "quote contains special chars"
     
     with quotes_lock:
@@ -176,8 +222,8 @@ def terminal():
     comand_sock.listen(3)
     comand_sock.settimeout(3)
 
-    logging.info("starting terminal")
-    logging.info("listening for comands on 127.0.0.1:100")
+    logger.info("starting terminal")
+    logger.info(f"listening for comands on 127.0.0.1:{TERMINAL_PORT}")
 
     global quotes, total_served
         
@@ -205,6 +251,7 @@ def terminal():
                             "load: load old quotes from file\n"
                             "add: add a quote from comand line\n"
                             "del: remove a Quote by index (used whit pri)\n"
+                            "stat: print some stats about the server\n"
                             "pri/ls: prints all curent Quotes\n".encode(encoding="utf-8"))
                         
                     case "pri" | "ls":
@@ -230,9 +277,9 @@ def terminal():
                             total_served= load_data["total_served"]     
 
                             csock.sendall("sucesfull loaded the Quotes".encode(encoding="utf-8"))
-                            logging.info("reloaded all quotes")
+                            logger.info("reloaded all quotes")
                         else:
-                            logging.error("load failed")
+                            logger.error("load failed")
                             csock.sendall("failed to load the quotes from file".encode(encoding="utf-8"))
 
 
@@ -252,13 +299,13 @@ def terminal():
                                 
 
                             csock.sendall("sucesfull added the Quote\n".encode(encoding="utf-8"))
-                            logging.warning(f"added a new quote: {new_quoteer}")
+                            logger.warning(f"added a new quote: {new_quoteer}")
                         else:
                             csock.sendall("Quote wasnt added:".encode(encoding="utf-8"))
                             csock.sendall(result.encode(encoding="utf-8"))
 
-                            logging.error("Quote wasnt added:")
-                            logging.error(result)
+                            logger.error("Quote wasnt added:")
+                            logger.error(result)
 
                     case "del":
                         csock.sendall("input the index of the Quote to delet: ".encode(encoding="utf-8"))
@@ -278,13 +325,37 @@ def terminal():
                             with quotes_lock:
                                 quotes.pop(del_index-1)
 
-                            logging.warning("quote removed")
+                            logger.warning("quote removed")
                             csock.sendall("quote removed\n".encode(encoding="utf-8"))
 
 
                         except Exception as e:
-                            logging.error(f"problem removing quote {str(e)}")
+                            logger.error(f"problem removing quote {str(e)}")
                             csock.sendall(str(e).encode(encoding="utf-8"))
+
+                    case "stat" | "info":
+                        with quotes_lock:
+                            len_quotes= len(quotes)
+                            local_served= total_served
+                            most_served_q = quotes[0]["text"]
+                            max_served=quotes[0]["count"]
+                            for i in range(len_quotes):
+                                if quotes[i]["count"]>max_served:
+                                    max_served=quotes[i]["count"]
+                                    most_served_q=quotes[i]["text"]
+
+                            
+
+
+                        csock.sendall(f"Quote of the day server {VERSION}\n"
+                                        "by Livius09 my gh: https://github.com/livius09 \n"
+                                        f"runtime: {get_runtime()}\n"
+                                        f"Quotes Stored: {len_quotes}\n"
+                                        f"Total Quotes Served: {local_served}\n"
+                                        f"Quotes Served in this Sesion: {START_SERVED-local_served}\n"
+                                        f"Most served Quote: {most_served_q}\n".encode(encoding="utf-8"))
+
+
 
                     case _:
                         csock.sendall("comand not recogniced, try help\n".encode(encoding="utf-8"))
@@ -299,7 +370,7 @@ def terminal():
             pass
 
         except Exception as e:
-            logging.error(f"Error handling terminal: {e}")
+            logger.error(f"Error handling terminal: {e}")
             if 'csock' in locals():
                 try:
                     csock.close()
@@ -311,7 +382,7 @@ def purge_log():
         log_file.write("")
 
 
-
+VERSION="1.0.0"
 
 purge_log()
 
@@ -337,7 +408,7 @@ if quote_data:
     quotes :list[dict]= quote_data["quotes"]
     total_served=quote_data["total_served"]
 else:
-    logging.error("problem parsing file shuting down")
+    logger.error("problem parsing file shuting down")
     exit(1)
 
 
@@ -346,6 +417,9 @@ else:
 # Daemon thread for clean shutdown
 quote_acept_thread = threading.Thread(target=new_quote, daemon=True)
 terminal_thread = threading.Thread(target=terminal,daemon=True)
+
+START_TIME=datetime.now()
+START_SERVED= total_served
 
 
 
@@ -358,8 +432,8 @@ try:
     server.listen(5)
     server.settimeout(3)
 
-    logging.info("Started Quote of the minute server")
-    logging.info("Listening on port 17...")
+    logger.info("Started Quote of the minute server")
+    logger.info(f"Listening on port {start_addr}:17")
 
     quote_acept_thread.start()
     terminal_thread.start()
@@ -383,7 +457,7 @@ try:
         except KeyboardInterrupt:
             serv_exit()
         except Exception as e:
-            logging.error(f"Error handling client: {e}")
+            logger.error(f"Error handling client: {e}")
             if 'sock' in locals():
                 try:
                     sock.close() # type: ignore
@@ -394,7 +468,7 @@ except KeyboardInterrupt:
     serv_exit()
 
 except Exception as e:
-    logging.error(f"Server error: {e}")
+    logger.error(f"Server error: {e}")
 
     serv_exit()
 
