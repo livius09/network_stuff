@@ -109,8 +109,7 @@ def save_quotes():
             with open(".tmp","w") as file:
                 file.write(json.dumps(save_data))
 
-            os.remove("Quotes.json")
-            os.rename(".tmp","Quotes.json")
+            os.replace(".tmp","Quotes.json")
 
 
         logger.info("saved Quotes to file")
@@ -157,7 +156,7 @@ def new_quote():
         try:
             asock, soaddr = accept_serv.accept()
 
-            asock.sendall("Quote of the minute input\ninput a quote to be displayed:".encode(encoding="utf-8"))
+            asock.sendall("Quote of the minute input by github.com/livius09 \ninput a quote to be displayed:".encode(encoding="utf-8"))
             recived_quote: str = asock.recv(1024).decode().strip()
 
             verify_result=verify_quotes(recived_quote)
@@ -230,129 +229,137 @@ def terminal():
             csock, teaddr = comand_sock.accept()
 
             csock.sendall("comand socket\n".encode(encoding="utf-8"))
-            while True:
+            csock.sendall("Password: ".encode(encoding="utf-8"))
 
-                csock.sendall(">>".encode(encoding="utf-8"))
+            recv_password=csock.recv(30).decode().strip()
 
-                comand: str =  csock.recv(1024).decode().strip()
+            if recv_password == SHELL_PASSWORD:
+            
 
-                match comand:
-                    case "":
-                        pass
-                    case "help":
-                        csock.sendall("help: print this\n"
-                            "exit: shutdown server\n"
-                            "save: save the curent Qoutes to file\n"
-                            "load: load old quotes from file\n"
-                            "add: add a quote from comand line\n"
-                            "del: remove a Quote by index (used whit pri)\n"
-                            "stat: print some stats about the server\n"
-                            "pri/ls: prints all curent Quotes\n".encode(encoding="utf-8"))
-                        
-                    case "pri" | "ls":
-                    
-                        with quotes_lock:
-                            out = "\n".join(f"{i}: {q['text']} : {q['count']}" for i, q in enumerate(quotes, 1))
-                            csock.sendall((out + "\n").encode(encoding="utf-8"))
+                while True:
 
-
-                    case "exit":
-                        csock.sendall("shuting down server".encode(encoding="utf-8"))
-                        csock.close()
-                        comand_sock.close()
-                        serv_exit()
-
-                    case "save":
-                        save_quotes()
-
-                    case "load":
-                        load_data = parse_file()
-                        if load_data:
-                            quotes[:] = load_data["quotes"]
-                            total_served= load_data["total_served"]     
-
-                            csock.sendall("sucesfull loaded the Quotes".encode(encoding="utf-8"))
-                            logger.info("reloaded all quotes")
-                        else:
-                            logger.error("load failed")
-                            csock.sendall("failed to load the quotes from file".encode(encoding="utf-8"))
-
+                    csock.sendall(">>".encode(encoding="utf-8"))
 
                     
-                    case "add":
 
-                        csock.sendall("input a new Quote: ".encode(encoding="utf-8"))
-                        new_quoteer = csock.recv(1024).decode().strip()
-                        
+                    comand: str =  csock.recv(1024).decode().strip()
 
+                    match comand:
+                        case "":
+                            pass
+                        case "help":
+                            csock.sendall("help: print this\n"
+                                "exit: shutdown server\n"
+                                "save: save the curent Qoutes to file\n"
+                                "load: load old quotes from file\n"
+                                "add: add a quote from comand line\n"
+                                "del: remove a Quote by index (used whit pri)\n"
+                                "stat: print some stats about the server\n"
+                                "pri/ls: prints all curent Quotes\n".encode(encoding="utf-8"))
+                            
+                        case "pri" | "ls":
                         
-                        print("testing")
-                        result = verify_quotes(new_quoteer)
-                        if result == "":
                             with quotes_lock:
-                                quotes.append({"text": new_quoteer, "count": 0})
+                                out = "\n".join(f"{i}: {q['text']} : {q['count']}" for i, q in enumerate(quotes, 1))
+                                csock.sendall((out + "\n").encode(encoding="utf-8"))
+
+
+                        case "exit":
+                            csock.sendall("shuting down server".encode(encoding="utf-8"))
+                            csock.close()
+                            comand_sock.close()
+                            serv_exit()
+
+                        case "save":
+                            save_quotes()
+
+                        case "load":
+                            load_data = parse_file()
+                            if load_data:
+                                quotes[:] = load_data["quotes"]
+                                total_served= load_data["total_served"]     
+
+                                csock.sendall("sucesfull loaded the Quotes".encode(encoding="utf-8"))
+                                logger.info("reloaded all quotes")
+                            else:
+                                logger.error("load failed")
+                                csock.sendall("failed to load the quotes from file".encode(encoding="utf-8"))
+
+
+                        
+                        case "add":
+
+                            csock.sendall("input a new Quote: ".encode(encoding="utf-8"))
+                            new_quoteer = csock.recv(1024).decode().strip()
+                            
+
+                            
+                            print("testing")
+                            result = verify_quotes(new_quoteer)
+                            if result == "":
+                                with quotes_lock:
+                                    quotes.append({"text": new_quoteer, "count": 0})
+                                    
+
+                                csock.sendall("sucesfull added the Quote\n".encode(encoding="utf-8"))
+                                logger.warning(f"added a new quote: {new_quoteer}")
+                            else:
+                                csock.sendall("Quote wasnt added:".encode(encoding="utf-8"))
+                                csock.sendall(result.encode(encoding="utf-8"))
+
+                                logger.error("Quote wasnt added:")
+                                logger.error(result)
+
+                        case "del":
+                            csock.sendall("input the index of the Quote to delet: ".encode(encoding="utf-8"))
+                            try:
+                                del_index = int(csock.recv(1024).decode().strip())
+                                if not del_index:
+                                    raise ValueError("you have to provide an index")
+
+
+                                if del_index == 0:
+                                    raise ValueError("index cant be: 0")
+                                
+                                if (del_index > len(quotes)):
+                                    raise ValueError("index must be in range")
+
+                                
+                                with quotes_lock:
+                                    quotes.pop(del_index-1)
+
+                                logger.warning("quote removed")
+                                csock.sendall("quote removed\n".encode(encoding="utf-8"))
+
+
+                            except Exception as e:
+                                logger.error(f"problem removing quote {str(e)}")
+                                csock.sendall(str(e).encode(encoding="utf-8"))
+
+                        case "stat" | "info":
+                            with quotes_lock:
+                                len_quotes= len(quotes)
+                                local_served= total_served
+                                most_served_q = quotes[0]["text"]
+                                max_served=quotes[0]["count"]
+                                for i in range(len_quotes):
+                                    if quotes[i]["count"]>max_served:
+                                        max_served=quotes[i]["count"]
+                                        most_served_q=quotes[i]["text"]
+
                                 
 
-                            csock.sendall("sucesfull added the Quote\n".encode(encoding="utf-8"))
-                            logger.warning(f"added a new quote: {new_quoteer}")
-                        else:
-                            csock.sendall("Quote wasnt added:".encode(encoding="utf-8"))
-                            csock.sendall(result.encode(encoding="utf-8"))
-
-                            logger.error("Quote wasnt added:")
-                            logger.error(result)
-
-                    case "del":
-                        csock.sendall("input the index of the Quote to delet: ".encode(encoding="utf-8"))
-                        try:
-                            del_index = int(csock.recv(1024).decode().strip())
-                            if not del_index:
-                                raise ValueError("you have to provide an index")
+                            csock.sendall(f"Quote of the day server {VERSION}\n"
+                                            "by Livius09 my gh: github.com/livius09 \n"
+                                            f"runtime: {get_runtime()}\n"
+                                            f"Quotes Stored: {len_quotes}\n"
+                                            f"Total Quotes Served: {local_served}\n"
+                                            f"Quotes Served in this Sesion: {local_served-START_SERVED}\n"
+                                            f"Most served Quote: {most_served_q}\n".encode(encoding="utf-8"))
 
 
-                            if del_index == 0:
-                                raise ValueError("index cant be: 0")
-                            
-                            if (del_index > len(quotes)):
-                                raise ValueError("index must be in range")
-
-                            
-                            with quotes_lock:
-                                quotes.pop(del_index-1)
-
-                            logger.warning("quote removed")
-                            csock.sendall("quote removed\n".encode(encoding="utf-8"))
-
-
-                        except Exception as e:
-                            logger.error(f"problem removing quote {str(e)}")
-                            csock.sendall(str(e).encode(encoding="utf-8"))
-
-                    case "stat" | "info":
-                        with quotes_lock:
-                            len_quotes= len(quotes)
-                            local_served= total_served
-                            most_served_q = quotes[0]["text"]
-                            max_served=quotes[0]["count"]
-                            for i in range(len_quotes):
-                                if quotes[i]["count"]>max_served:
-                                    max_served=quotes[i]["count"]
-                                    most_served_q=quotes[i]["text"]
-
-                            
-
-
-                        csock.sendall(f"Quote of the day server {VERSION}\n"
-                                        "by Livius09 my gh: https://github.com/livius09 \n"
-                                        f"runtime: {get_runtime()}\n"
-                                        f"Quotes Stored: {len_quotes}\n"
-                                        f"Total Quotes Served: {local_served}\n"
-                                        f"Quotes Served in this Sesion: {local_served-START_SERVED}\n"
-                                        f"Most served Quote: {most_served_q}\n".encode(encoding="utf-8"))
-
-
-                    case _:
-                        csock.sendall("comand not recogniced, try help\n".encode(encoding="utf-8"))
+                        case _:
+                            csock.sendall("comand not recogniced, try help\n".encode(encoding="utf-8"))
 
 
 
@@ -377,6 +384,7 @@ def purge_log():
 
 
 VERSION="1.0.1"
+SHELL_PASSWORD="Admin!"
 
 purge_log()
 
