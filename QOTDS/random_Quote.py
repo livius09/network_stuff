@@ -55,11 +55,6 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-# --- Example logs ---
-logger.info("This is info")
-logger.warning("This is warning")
-logger.error("This is error")
-
 
 #logging.addLevelName( logging.INFO, "\033[94m%s\033[0m" % logging.getLevelName(logging.INFO))
 #logging.addLevelName( logging.WARNING, "\033[93m%s\033[0m" % logging.getLevelName(logging.WARNING))
@@ -352,9 +347,8 @@ def terminal():
                                         f"runtime: {get_runtime()}\n"
                                         f"Quotes Stored: {len_quotes}\n"
                                         f"Total Quotes Served: {local_served}\n"
-                                        f"Quotes Served in this Sesion: {START_SERVED-local_served}\n"
+                                        f"Quotes Served in this Sesion: {local_served-START_SERVED}\n"
                                         f"Most served Quote: {most_served_q}\n".encode(encoding="utf-8"))
-
 
 
                     case _:
@@ -382,7 +376,7 @@ def purge_log():
         log_file.write("")
 
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 
 purge_log()
 
@@ -395,7 +389,7 @@ quote_out_kill= threading.Event()
 
 quotes_lock = threading.Lock()
 file_lock   = threading.Lock() 
-start_addr :str= "127.0.0.1"
+start_addr :str= "0.0.0.0"
 
 QUOTE_SERVER_PORT = 17
 INPUT_SERVER_PORT = 1700
