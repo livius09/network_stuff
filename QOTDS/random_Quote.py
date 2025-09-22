@@ -2,15 +2,12 @@ import json
 import socket
 import random
 import threading
-import sys
 import os
 import logging
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta
 
-import logging
-import sys
-
-import logging
 import sys
 from logging.handlers import RotatingFileHandler  # <-- new import
 
@@ -164,6 +161,21 @@ def new_quote():
     while not new_quote_kill.is_set():
         try:
             asock, soaddr = accept_serv.accept()
+
+            ip = soaddr[0]
+
+            if is_rate_limited(ip):
+                logger.warning(f"Rate limit exceeded for {ip}")
+                asock.sendall(b"Too many submissions, try later\n")
+                asock.close()
+                continue
+
+            if not allow_request():
+                logger.warning("Global QPS limit hit, dropping request")
+                sock.sendall(b"Server busy, try again later\n")
+                sock.close()
+                continue
+
 
             asock.sendall("Quote of the minute input by github.com/livius09 \ninput a quote to be displayed:".encode(encoding="utf-8"))
             recived_quote: str = asock.recv(1024).decode().strip()
@@ -391,6 +403,40 @@ def purge_log():
     with open("quotes_log.txt","w") as log_file:
         log_file.write("")
 
+def allow_request() -> bool:
+    global last_reset, requests_this_second
+    now = time.time()
+    with req_lock:
+        # reset counter every second
+        if now - last_reset >= 1:
+            last_reset = now
+            requests_this_second = 0
+        if requests_this_second < MAX_QPS:
+            requests_this_second += 1
+            return True
+        return False
+    
+
+
+def is_rate_limited(ip: str) -> bool:
+    now = time.time()
+    # keep only requests in the window
+    client_requests[ip] = [t for t in client_requests[ip] if now - t < TIME_WINDOW]
+    if len(client_requests[ip]) >= RATE_LIMIT:
+        return True
+    client_requests[ip].append(now)
+    return False
+
+RATE_LIMIT = 10       # max requests per IP
+TIME_WINDOW = 60      # seconds
+
+client_requests = defaultdict(list)  # ip -> [timestamps]
+
+MAX_QPS = 30   # allow 5 requests per second (tune for your VM)
+last_reset = time.time()
+requests_this_second = 0
+req_lock = threading.Lock()
+
 
 VERSION="1.0.1"
 SHELL_PASSWORD="Admin!"
@@ -453,6 +499,21 @@ try:
     while not quote_out_kill.is_set():
         try:
             sock, serv_addr = server.accept()
+
+            ip = serv_addr[0]
+
+            if not allow_request():
+                logger.warning("Global QPS limit hit, dropping request")
+                sock.sendall(b"Server busy, try again later\n")
+                sock.close()
+                continue
+
+            if is_rate_limited(ip):
+                logger.warning(f"Rate limit exceeded for {ip}")
+                sock.sendall(b"!!Too many requests, try later!!\n")
+                sock.close()
+                continue
+
             with quotes_lock:
                 cur_num = random.randint(0, len(quotes) - 1)
                 cur_quote = quotes[cur_num]["text"]

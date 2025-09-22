@@ -1,6 +1,11 @@
-[2025-09-18 20:05:11] INFO Started Quote of the minute server
-[2025-09-18 20:05:11] INFO Listening on port 0.0.0.0:17
-[2025-09-18 20:05:11] INFO Started input server
-[2025-09-18 20:05:11] INFO Listening on port 0.0.0.0:1700
-[2025-09-18 20:05:11] INFO starting terminal
-[2025-09-18 20:05:11] INFO listening for comands on 127.0.0.1:100
+[2025-09-22 07:22:23] INFO Started Quote of the minute server
+[2025-09-22 07:22:23] INFO Listening on port 0.0.0.0:17
+[2025-09-22 07:22:23] INFO Started input server
+[2025-09-22 07:22:23] INFO Listening on port 0.0.0.0:1700
+[2025-09-22 07:22:23] INFO starting terminal
+[2025-09-22 07:22:23] INFO listening for comands on 127.0.0.1:100
+[2025-09-22 07:23:21] WARNING Rate limit exceeded for 127.0.0.1
+[2025-09-22 07:23:22] WARNING Rate limit exceeded for 127.0.0.1
+[2025-09-22 07:23:23] WARNING Rate limit exceeded for 127.0.0.1
+[2025-09-22 07:24:24] INFO saved Quotes to file
+[2025-09-22 07:24:24] INFO shuting down server
