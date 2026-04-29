@@ -15,6 +15,7 @@ def ping(targ:str)->bool:
     response =os.system(f"ping -c 1 {targ} > /dev/null")
     if response == 0:
         return True
+    return False
     
 print(ping(target))
 
