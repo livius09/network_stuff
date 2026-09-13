@@ -179,7 +179,7 @@ try:
                     pass
 
 except KeyboardInterrupt:
-            serv_exit()
+    serv_exit()
 
 except Exception as e:
     print(f"Server error: {e}")
