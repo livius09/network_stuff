@@ -2,6 +2,14 @@ import json as j
 import socket
 import sqlite3
 import threading
+import time
+
+
+
+clients:dict[str,socket.socket] = {}
+lock = threading.Lock() 
+start_time = time.time()
+
 
 try:
     with open("QuarzChat/config.json") as file:
@@ -9,8 +17,15 @@ try:
 except (OSError, j.JSONDecodeError) as e:
     raise SystemExit(f"couldn't load config: {e}")
 
-clients:dict[str,socket.socket] = {}
-lock = threading.Lock()
+
+def socket_to_name(sock:socket.socket)->str|None:
+    with lock:
+        for n in clients.keys():
+            if clients[n] is sock:
+                return n
+
+        return None
+
 
 def broadcast(msg:str,sendsock:socket.socket|None=None):
     with lock:
@@ -61,7 +76,7 @@ def handle(sock:socket.socket):
             broadcast(f"{user}: {line}",sock)
 
             if line.startswith("/"):
-                handleComands(line)
+                handleComands(line,sock)
 
             if sock not in clients.values():
                 return
@@ -69,25 +84,59 @@ def handle(sock:socket.socket):
         try:
             sock.close()
         except:pass
-        broadcast(f"*** {user} disconected",)
+        broadcast(f"*** {user} disconected")
         return
 
 
 
-def handleComands(msg:str):
-    comand=msg.split(" ")[0]
+def handleComands(msg:str,socke:socket.socket):
+    comand = msg.split(" ")[0]
     match comand:
         case "/help":
-            broadcast("*** This is a small chat server",None)
+            broadcast("*** ")
+
+        case "/time":
+            broadcast("*** Time: "+ str(time.localtime()))
+
+        case "/info":
+            broadcast(f"*** IP: {setings["ip"]}\nPort: {setings["port"]}\nUptime: {time.time()-start_time}")
+
+        case "/nusers":
+            with lock:
+                tmp = len(clients)
+
+            broadcast(f"*** {tmp} users conected")
+
+        case "/end":
+            tmp = socket_to_name(socke)
+            
+            with lock:
+                if tmp is not None:
+                    del clients[tmp]
+            socke.close()
+
+
 
 
 
 srv = socket.socket()
 srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 srv.bind((setings["ip"], setings["port"]))
-srv.listen()
+srv.listen(setings["maxConections"])
+srv.settimeout(3)
 print("server started")
 
-while True:
-    s, _ = srv.accept()
-    threading.Thread(target=handle, args=(s,), daemon=True).start()
+try:
+    while True:
+        try:
+            s, _ = srv.accept()
+            threading.Thread(target=handle, args=(s,), daemon=True).start()
+        except socket.timeout:
+            pass
+except KeyboardInterrupt:
+    pass
+finally:
+    broadcast("*** server Shuting down")
+    srv.close()
+
+
