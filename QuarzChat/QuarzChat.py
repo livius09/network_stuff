@@ -7,7 +7,7 @@ import time
 
 
 clients:dict[str,socket.socket] = {}
-lock = threading.Lock() 
+lock = threading.RLock()
 start_time = time.time()
 
 
@@ -169,7 +169,7 @@ def handleComands(msg:str,socke:socket.socket):
             broadcast(f"Time: {lt.tm_hour}:{lt.tm_min}:{lt.tm_sec}  {lt.tm_mday},{lt.tm_mon},{lt.tm_year}","***")
 
         case "/info":
-            broadcast(f" IP: {setings["ip"]}\nPort: {setings["port"]}\nUptime: {(time.time()-start_time):.2f}", "***")
+            broadcast(f"\nIP: {setings["ip"]}\nPort: {setings["port"]}\nUptime: {(time.time()-start_time):.2f}", "***")
 
         case "/nusers":
             with lock:
@@ -180,15 +180,10 @@ def handleComands(msg:str,socke:socket.socket):
         case "/whois":
             if len(comand)>1:
                 usern = comand[1]
-                print("what")
                 with lock:
                     if usern in clients.keys():
-                        print("skib")
-                        try:
-                            broadcast(f"{usern}: {clients[usern].getpeername()[0]} {clients[usern].getpeername()[1]}","***")
-                        except Exception as e:
-                            print(e)
-                        print("elo")
+                        broadcast(f"{usern}: {clients[usern].getpeername()[0]} {clients[usern].getpeername()[1]}","***")
+                        
                     else:
                         broadcast("user not found","***")
             else:
