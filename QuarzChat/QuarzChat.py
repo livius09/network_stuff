@@ -27,8 +27,6 @@ conn.execute("""CREATE TABLE IF NOT EXISTS messages (
 
 conn.execute("""CREATE TABLE IF NOT EXISTS stats (
     username        TEXT PRIMARY KEY,
-    messages_sent   INTEGER DEFAULT 0,
-    comands_used    INTEGER DEFAULT 0,
     last_seen       TIMESTAMP)""")
 
 conn.commit()
@@ -95,8 +93,8 @@ def handle(sock:socket.socket):
     with lock:
 
         conn.execute("""
-                        INSERT INTO stats (username, messages_sent, comands_used, last_seen)
-                        VALUES (?, 1, 0, CURRENT_TIMESTAMP)
+                        INSERT INTO stats (username, last_seen)
+                        VALUES (?, CURRENT_TIMESTAMP)
                         ON CONFLICT(username) DO UPDATE SET
                         last_seen = CURRENT_TIMESTAMP
                         """, (user,))
@@ -128,21 +126,14 @@ def handle(sock:socket.socket):
 
             with lock:
                 conn.execute("""
-                                INSERT INTO stats (username, messages_sent, comands_used, last_seen)
-                                VALUES (?, 1, 0, CURRENT_TIMESTAMP)
+                                INSERT INTO stats (username, last_seen)
+                                VALUES (?, CURRENT_TIMESTAMP)
                                 ON CONFLICT(username) DO UPDATE SET
-                                messages_sent = messages_sent + 1,
                                 last_seen = CURRENT_TIMESTAMP
                                 """, (user,))
                 conn.commit()
 
             if line.startswith("/"):
-                with lock:
-                    conn.execute("""UPDATE stats set comands_used = comands_used + 1 WHERE username = ?;""",(user,))
-                    conn.commit()
-                    
-
-                
                 handleComands(line,sock)
                 
 
@@ -195,9 +186,14 @@ def handleComands(msg:str,socke:socket.socket):
             if len(comand)>1:
                 usern = comand[1]
                 with lock:
-                    stats = conn.execute("SELECT messages_sent, comands_used  WHERE username = ?",(usern,)).fetchall()
-                    if stats is not None:
-                        broadcast(f"{usern}: mesages: {stats[0]} cmds: {stats[1]}","***")
+
+                    if conn.execute("IF EXISTS ( SELECT * FROM mesages WHERE username = ?)",(usern,)).fetchall():
+
+                        mesages = conn.execute("SELECT COUNT(username) FROM mesages WHERE username=?;",(usern,)).fetchall()
+                        comands = conn.execute("SELECT COUNT(username) FROM Customers WHERE text like '/%' AND username=?;" , (usern,))
+                        last    = conn.execute("SELECT last_seen FROM stats WHERE username=?;",(usern,))
+
+                        broadcast(f"{usern}: mesages: {mesages} cmds: {comands} last seen: {last}","***")
                     else:
                         broadcast("user not found","***")
             else:
