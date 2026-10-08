@@ -41,6 +41,17 @@ def socket_to_name(sock:socket.socket)->str|None:
         return None
 
 
+def delet(sockl:socket.socket):
+    try:
+        sockl.close()
+    except: pass
+    with lock:
+        nam = socket_to_name(sockl)
+        if nam is not None:
+            del clients[nam]
+
+
+
 def broadcast(msg:str, user:str="", sendsock:socket.socket|None=None):
     with lock:
         dead = []
@@ -91,19 +102,28 @@ def handle(sock:socket.socket):
 
 
     with lock:
-
         conn.execute("""
                         INSERT INTO stats (username, last_seen)
                         VALUES (?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(username) DO UPDATE SET
-                        last_seen = CURRENT_TIMESTAMP
+                        ON CONFLICT(username) DO NOTHING
                         """, (user,))
         conn.commit()
-        rows = conn.execute(
-            "SELECT user, text FROM messages ORDER BY id DESC LIMIT 20"
-        ).fetchall()
 
-    for u, t in reversed(rows):
+        rows = conn.execute("""
+                                SELECT m.user, m.text, m.ts
+                                FROM messages m
+                                JOIN stats s ON s.username = ?
+                                WHERE m.ts > s.last_seen
+                                ORDER BY m.ts ASC""", (user,)).fetchall()
+
+
+        conn.execute("UPDATE stats SET last_seen = CURRENT_TIMESTAMP WHERE username = ?", (user,))
+        conn.commit()
+        
+
+        
+
+    for u, t,e in iter(rows):
         try:
             tren=": "
             if u=="":
@@ -111,9 +131,7 @@ def handle(sock:socket.socket):
 
             sock.sendall(f"{u}{tren}{t}\n".encode())
         except:
-            try:
-                sock.close()
-            except: pass
+            delet(sock)
             return
 
     broadcast(f"{user} joined","***",sock)
@@ -125,11 +143,8 @@ def handle(sock:socket.socket):
             broadcast(f"{user}: {line}", "", sock)
 
             with lock:
-                conn.execute("""
-                                INSERT INTO stats (username, last_seen)
-                                VALUES (?, CURRENT_TIMESTAMP)
-                                ON CONFLICT(username) DO UPDATE SET
-                                last_seen = CURRENT_TIMESTAMP
+                conn.execute("""UPDATE stats SET
+                                last_seen = CURRENT_TIMESTAMP WHERE username = ?
                                 """, (user,))
                 conn.commit()
 
@@ -141,9 +156,7 @@ def handle(sock:socket.socket):
                 sock.close()
                 return
     finally:
-        try:
-            sock.close()
-        except:pass
+        delet(sock)
         broadcast(f"*** {user} disconected")
         return
 
@@ -153,7 +166,15 @@ def handleComands(msg:str,socke:socket.socket):
     comand = msg.split(" ")
     match comand[0]:
         case "/help":
-            broadcast("*** here is help")
+            broadcast("Comands:\n/time :tells you the time +"+
+                      "\n/info :gives info about the server"+
+                      "\n/nusers :tells you the numbers of users conected"+
+                      "\n/load n :loads the last n mesages when no argument is give loads 20"+
+                      "\n/whois u :gives info about the provieded user"+
+                      "\n/stats u :gives stast of a given users"+
+                      "\n/end :disconect from the server"+
+                      "\nhelp : displays this text"+
+                      "\nfor more help or info take a look at the github page https://github.com/livius09/Raspy","***")
 
         case "/time":
             lt=time.localtime()
@@ -167,6 +188,34 @@ def handleComands(msg:str,socke:socket.socket):
                 tmp = len(clients)
 
             broadcast(f"{tmp} users conected","***")
+
+
+        case "/load":
+
+
+            if len(comand)>1:
+                try:
+                    limit = int(comand[1])
+                except:
+                    broadcast("load amount needs to be a number")
+                    return
+            else:
+                limit=20
+
+
+            with lock:
+                rows = conn.execute("SELECT user, text FROM messages ORDER BY id ASC LIMIT ?",(limit,)).fetchall()
+            
+            for u, t in iter(rows):
+                try:
+                    tren=": "
+                    if u=="":
+                        tren=""
+        
+                    socke.sendall(f"{u}{tren}{t}\n".encode())
+                except:
+                    
+                    return
 
         case "/whois":
             if len(comand)>1:
@@ -187,11 +236,11 @@ def handleComands(msg:str,socke:socket.socket):
                 usern = comand[1]
                 with lock:
 
-                    if conn.execute("IF EXISTS ( SELECT * FROM mesages WHERE username = ?)",(usern,)).fetchall():
+                    if conn.execute("IF EXISTS ( SELECT * FROM mesages WHERE username = ?)",(usern,)).fetchone():
 
-                        mesages = conn.execute("SELECT COUNT(username) FROM mesages WHERE username=?;",(usern,)).fetchall()
-                        comands = conn.execute("SELECT COUNT(username) FROM Customers WHERE text like '/%' AND username=?;" , (usern,))
-                        last    = conn.execute("SELECT last_seen FROM stats WHERE username=?;",(usern,))
+                        mesages = conn.execute("SELECT COUNT(username) FROM mesages WHERE username=?;",(usern,)).fetchone()
+                        comands = conn.execute("SELECT COUNT(username) FROM Customers WHERE text like '/%' AND username=?;" , (usern,)).fetchone()
+                        last    = conn.execute("SELECT last_seen FROM stats WHERE username=?;",(usern,)).fetchone()
 
                         broadcast(f"{usern}: mesages: {mesages} cmds: {comands} last seen: {last}","***")
                     else:
